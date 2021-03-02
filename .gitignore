@@ -4,3 +4,6 @@
 /invoices/
 /config.py
 /access_token
+.idea/
+__pycache__/
+pdfs/
