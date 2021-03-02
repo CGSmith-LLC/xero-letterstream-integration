@@ -108,8 +108,8 @@ def process_invoices():
         startdate = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")  # yesterday
         enddate = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")  # yesterday
 
-    # date range string to pass later to Xero API
-    dateRange = f"Date >= DateTime({','.join(startdate.split('-'))}) AND Date <= DateTime({','.join(enddate.split('-'))})"
+    # date range string to pass later to Xero API - add ACCREC clause for only invoices
+    whereClause = f"Date >= DateTime({','.join(startdate.split('-'))}) AND Date <= DateTime({','.join(enddate.split('-'))})&&Type==\"ACCREC\""
 
     # call the Invoices API to get the data
     # using paging to enable getting the line items for each invoice
@@ -119,7 +119,7 @@ def process_invoices():
     while True:
         i += 1
         headers = {'Authorization': 'Bearer ' + token, 'xero-tenant-id': tenantId, 'Accept': 'application/json'}
-        params = {'where': dateRange, 'page': i}
+        params = {'where': whereClause, 'page': i, 'Status': 'AUTHORISED'}
         response = requests.get('https://api.xero.com/api.xro/2.0/Invoices/', headers=headers, params=params)
         try:
             if len(response.json()['Invoices']) == 0:
@@ -129,15 +129,35 @@ def process_invoices():
         invoices += response.json()['Invoices']
 
     # create a folder and save each invoice there
-    os.mkdir('invoices')
+    try:
+        os.mkdir('invoices')
+    except OSError:
+        pass
+
+    # loop through invoices
     for invoice in invoices:
+        print(invoice)
         headers = {'Authorization': 'Bearer ' + token, 'xero-tenant-id': tenantId, 'Accept': 'application/pdf'}
         response = requests.get('https://api.xero.com/api.xro/2.0/Invoices/' + invoice['InvoiceID'], headers=headers, params=params)
-        file = open(os.path.join('invoices', invoice['InvoiceID'] + '.pdf'), 'wb')
+        try:
+            # make the customers subdirectory under invoices
+            os.mkdir('invoices/' + invoice['Contact']['Name'])
+        except OSError:
+            pass
+        file = open(os.path.join('invoices', invoice['Contact']['Name'], invoice['InvoiceNumber'] + '.pdf'), 'wb')
         file.write(response.content)
         file.close()
 
         # todo add sending the file to the API
+        # Requirements
+        # - Need to send recipients addresses as an array
+        # - Need to send from address (from config is fine)
+        # - base64 pdf encoding sent in request
+        # - Number of pages needed in request
+        # - Parameters:
+        #   job = YYMMDD-Contact Name
+        #   ink = C
+        #
 
     return Response(status=200)
 

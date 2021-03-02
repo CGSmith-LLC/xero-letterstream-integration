@@ -8,7 +8,7 @@
 # In the app description, the "OAuth 2.0 redirect URI" field should be the same as the variables "appAddress + authSlug" below
 id = 'your-id'
 secret = 'your-secret'
-
+lsApiUrl = 'https://www.letterstream.com/apis/index.php'
 # the scope of the access to Xero API https://developer.xero.com/documentation/oauth2/scopes
 scope='accounting.transactions.read accounting.contacts.read offline_access'
 
