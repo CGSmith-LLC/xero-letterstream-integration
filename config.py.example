@@ -1,0 +1,17 @@
+# You need to replace the following parameters here with your values: client id, client secret, appAddress
+# Once you updated the config file, launch the flask app
+# After launching the flask app, open the address "appAddress + authSlug" in the browser to start the authorization
+
+# Xero third-party app ID and secret
+# create a Xero Dev account and create a new app there:
+# https://developer.xero.com/myapps/
+# In the app description, the "OAuth 2.0 redirect URI" field should be the same as the variables "appAddress + authSlug" below
+id = 'your-id'
+secret = 'your-secret'
+
+# the scope of the access to Xero API https://developer.xero.com/documentation/oauth2/scopes
+scope='accounting.transactions.read accounting.contacts.read offline_access'
+
+appAddress = 'https://xero.ngrok.io'  # the address of the hosted app (without the / in the end)
+authSlug = '/abc'  # the url slug which lead to authorization process
+invoicesSlug = '/123'  # the url slug which triggers the invoices processing
