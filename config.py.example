@@ -8,10 +8,15 @@
 # In the app description, the "OAuth 2.0 redirect URI" field should be the same as the variables "appAddress + authSlug" below
 id = 'your-id'
 secret = 'your-secret'
-lsApiUrl = 'https://www.letterstream.com/apis/index.php'
 # the scope of the access to Xero API https://developer.xero.com/documentation/oauth2/scopes
 scope='accounting.transactions.read accounting.contacts.read offline_access'
 
 appAddress = 'https://xero.ngrok.io'  # the address of the hosted app (without the / in the end)
 authSlug = '/abc'  # the url slug which lead to authorization process
 invoicesSlug = '/123'  # the url slug which triggers the invoices processing
+
+# LetterStream configuration
+api_id = '3'
+api_key = '5'
+fromAddress = 'CGSmith, LLC::PO Box 812::East Troy:WI:53120'
+Ink = 'C'

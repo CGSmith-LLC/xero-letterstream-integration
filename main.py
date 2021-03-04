@@ -1,7 +1,8 @@
 #! /usr/bin/python3
 
 from flask import Flask, request, Response, redirect
-import requests, config, datetime, docx, os, traceback
+import config
+import requests, datetime, os, csv, random, string, PyPDF2, zipfile, base64, hashlib
 from docx.shared import Pt
 from base64 import b64encode
 from docx2pdf import convert
@@ -116,11 +117,12 @@ def process_invoices():
     # https://developer.xero.com/documentation/api/invoices
     i = 0
     invoices = []
+    headpdf = {'Authorization': 'Bearer ' + token, 'xero-tenant-id': tenantId, 'Accept': 'application/pdf'}
+    headjson = {'Authorization': 'Bearer ' + token, 'xero-tenant-id': tenantId, 'Accept': 'application/json'}
     while True:
         i += 1
-        headers = {'Authorization': 'Bearer ' + token, 'xero-tenant-id': tenantId, 'Accept': 'application/json'}
         params = {'where': whereClause, 'page': i, 'Status': 'AUTHORISED'}
-        response = requests.get('https://api.xero.com/api.xro/2.0/Invoices/', headers=headers, params=params)
+        response = requests.get('https://api.xero.com/api.xro/2.0/Invoices/', headers=headjson, params=params)
         try:
             if len(response.json()['Invoices']) == 0:
                 break
@@ -128,36 +130,64 @@ def process_invoices():
             break
         invoices += response.json()['Invoices']
 
-    # create a folder and save each invoice there
+    # create a folder
+    # save each PDFs there and add a csv record for each invoice
+    resultName = 'invoices ' + datetime.datetime.now().strftime("%d %b %Y %H-%M-%S")
+
     try:
-        os.mkdir('invoices')
+        os.mkdir(resultName)
     except OSError:
         pass
 
-    # loop through invoices
+    i = 0
+
     for invoice in invoices:
-        print(invoice)
-        headers = {'Authorization': 'Bearer ' + token, 'xero-tenant-id': tenantId, 'Accept': 'application/pdf'}
-        response = requests.get('https://api.xero.com/api.xro/2.0/Invoices/' + invoice['InvoiceID'], headers=headers, params=params)
-        try:
-            # make the customers subdirectory under invoices
-            os.mkdir('invoices/' + invoice['Contact']['Name'])
-        except OSError:
-            pass
-        file = open(os.path.join('invoices', invoice['Contact']['Name'], invoice['InvoiceNumber'] + '.pdf'), 'wb')
+        response = requests.get('https://api.xero.com/api.xro/2.0/Invoices/' + invoice['InvoiceID'], headers=headpdf, params=params)
+        contactresponse = requests.get('https://api.xero.com/api.xro/2.0/Contacts/' + invoice['Contact']['ContactID'], headers=headjson)
+        contact = contactresponse.json()['Contacts']
+
+        pdfFilePath = os.path.join('.', resultName, invoice['InvoiceID'] + '.pdf')
+        file = open(pdfFilePath, 'wb')
         file.write(response.content)
         file.close()
 
-        # todo add sending the file to the API
-        # Requirements
-        # - Need to send recipients addresses as an array
-        # - Need to send from address (from config is fine)
-        # - base64 pdf encoding sent in request
-        # - Number of pages needed in request
-        # - Parameters:
-        #   job = YYMMDD-Contact Name
-        #   ink = C
-        #
+        # creating authorization credentials for LetterStream
+        i += 1
+        unique_id = str(i) + str(datetime.datetime.now().timestamp()).replace('.', '')[2:]
+        string_to_hash = unique_id[-6:] + config.api_key + unique_id[:6]
+        hash = hashlib.md5(base64.b64encode(string_to_hash.encode("utf-8"))).hexdigest()
+
+        # requesting LetterStream API
+        addresses = []
+        a = 0
+
+        for address in contact[0]['Addresses']:
+            if address['AddressType'] == 'POBOX':
+                a += 1
+                secondAddressLine = ' '.join([
+                    address.get('AddressLine2', ''),
+                    address.get('AddressLine3', ''),
+                    address.get('AddressLine4', '')
+                ]).strip()
+                addresses.append(
+                    f"{unique_id + str(a)}:{invoice['Contact']['Name']}::{address.get('AddressLine1', '')}:{secondAddressLine}:{address.get('City', '')}:{address.get('Region', '')}:{address.get('PostalCode', '')}")
+
+        contactname = invoice['Contact']['Name']
+        data = {
+            'a': config.api_id,
+            'h': hash,
+            't': unique_id,
+            'job': datetime.datetime.now().strftime("%y%m%d") + '-' + contactname[0:8] + '-' + unique_id[-4:],
+            'to[]': addresses,
+            'from': config.fromAddress,
+            'single_file': base64.b64encode(open(pdfFilePath, 'rb').read()),
+            'pages': str(PyPDF2.PdfFileReader(open(pdfFilePath, 'rb')).numPages),
+            'ink': config.Ink
+        }
+
+        res = requests.post('https://www.letterstream.com/apis/', data=data)
+        res.raise_for_status()
+        print(res.text)
 
     return Response(status=200)
 
