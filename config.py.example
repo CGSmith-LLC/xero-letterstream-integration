@@ -12,8 +12,8 @@ secret = 'your-secret'
 scope='accounting.transactions.read accounting.contacts.read offline_access'
 
 appAddress = 'https://xero.ngrok.io'  # the address of the hosted app (without the / in the end)
-authSlug = '/abc'  # the url slug which lead to authorization process
-invoicesSlug = '/123'  # the url slug which triggers the invoices processing
+authSlug = '/auth'  # the url slug which lead to authorization process
+invoicesSlug = '/runinvoice'  # the url slug which triggers the invoices processing
 
 # LetterStream configuration
 api_id = '3'
